@@ -1,0 +1,11 @@
+__pycache__/
+build/
+dist/
+SR-LPData/
+.eggs/
+*.egg-info/
+tb_logger/
+experiments/
+venv/
+
+*.zip

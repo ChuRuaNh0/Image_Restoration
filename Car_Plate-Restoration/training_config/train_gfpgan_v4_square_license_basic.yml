@@ -1,0 +1,233 @@
+# general settings
+name: train_GFPGANv1_512
+model_type: GFPGANModel
+num_gpu: 1
+manual_seed: 0
+
+# dataset and data loader settings
+datasets:
+  train:
+    name: FFHQ
+    type: FFHQDegradationDataset
+    dataroot_gt: ./SR-LPData/LicensePlateData
+    io_backend:
+      # type: lmdb
+      type: disk
+
+    use_hflip: false
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
+    input_width: 256
+    input_height: 256
+
+    blur_kernel_size: 21
+    min_kernel_size: 11
+    kernel_list: ['iso', 'aniso', 'motion', 'average', 'median', 'bilateral', 'pyblur']
+    kernel_prob: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.4]
+    blur_sigma: [0.1, 10]
+    downsample_range: [4.0, 12.0]
+    noise_range: [0, 20]
+    jpeg_range: [30, 100]
+    perspective_transform_range: [3, 5]
+
+    # color jitter and gray
+    color_jitter_prob: 0.3
+    color_jitter_shift: 20
+    color_jitter_pt_prob: 0.3
+    gray_prob: 0.01
+
+    # crop_components: false
+    # component_path: ~
+    # eye_enlarge_ratio: 1.4
+
+    # Mask
+    random_mask: false
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 6
+    batch_size_per_gpu: 1
+    dataset_enlarge_ratio: 100
+    prefetch_mode: ~
+    pin_memory: True
+
+  val:
+    # Please modify accordingly to use your own validation
+    # Or comment the val block if do not need validation during training
+    name: validation
+    # type: PairedImageDataset
+    type: FFHQDegradationDataset
+    dataroot_gt: ./SR-LPData/LicensePlateData_valid
+    # dataroot_gt: /home/dongtrinh/project/LicencePlate-Rectangle/high_cleaned_3_rec_valid
+    io_backend:
+      type: disk
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
+    scale: 1
+    input_width: 256
+    input_height: 256
+    blur_kernel_size: 21
+    min_kernel_size: 11
+    kernel_list: ['iso', 'aniso', 'motion', 'average', 'median', 'bilateral', 'pyblur']
+    kernel_prob: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.4]
+    blur_sigma: [0.1, 10]
+    downsample_range: [4.0, 12.0]
+    noise_range: [0, 20]
+    jpeg_range: [30, 100]
+    perspective_transform_range: [3, 5]
+    use_hflip: false
+
+    # color jitter and gray
+    color_jitter_prob: 0.3
+    color_jitter_shift: 20
+    color_jitter_pt_prob: 0.3
+    gray_prob: 0.01
+
+    # crop_components: false
+    # component_path: ~
+    # eye_enlarge_ratio: 1.4
+
+    # Mask
+    random_mask: false
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 1
+    batch_size_per_gpu: 1
+    dataset_enlarge_ratio: 100
+    prefetch_mode: ~
+
+use_component_loss: false
+
+# network structures
+network_g:
+  type: GFPGANv1OCR
+  input_width: 256
+  input_height: 256
+  num_style_feat: 256
+  channel_multiplier: 0.5
+  resample_kernel: [1, 3, 3, 1]
+  decoder_load_path: ~ 
+  fix_decoder: false
+  num_mlp: 4
+  lr_mlp: 0.01
+  input_is_latent: true
+  different_w: true
+  narrow: 1
+  sft_half: true
+
+network_d:
+  type: StyleGAN2Discriminator
+  input_width: 256
+  input_height: 256
+  channel_multiplier: 1
+  resample_kernel: [1, 3, 3, 1]
+
+# path
+path:
+  pretrain_network_g: ~
+  param_key_g: params_ema
+  strict_load_g: ~
+  pretrain_network_d: ~
+  # resume
+  resume_state: ~
+  # /home/dongtrinh/project/basicsr-gfpgan/experiments/train_GFPGANv1_512/training_states/200000.state
+  
+# training settings
+train:
+  optim_g:
+    type: Adam
+    lr: !!float 2e-3
+  optim_d:
+    type: Adam
+    lr: !!float 2e-3
+  optim_component:
+    type: Adam
+    lr: !!float 2e-3
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [100000, 150000]
+    gamma: 0.5
+
+  total_iter: 200000
+  warmup_iter: -1  # no warm up
+
+  # losses
+  # pixel loss
+  pixel_opt:
+    type: L1Loss
+    loss_weight: !!float 1e-1
+    reduction: mean
+  # L1 loss used in pyramid loss, component style loss and identity loss
+  L1_opt:
+    type: L1Loss
+    loss_weight: 1
+    reduction: mean
+
+  # image pyramid loss
+  pyramid_loss_weight: 1
+  remove_pyramid_loss: 50000
+  # perceptual loss (content and style losses)
+  perceptual_opt:
+    type: PerceptualLoss
+    layer_weights:
+      # before relu
+      'conv1_2': 0.1
+      'conv2_2': 0.1
+      'conv3_4': 1
+      'conv4_4': 1
+      'conv5_4': 1
+    vgg_type: vgg19
+    use_input_norm: true
+    perceptual_weight: !!float 1
+    style_weight: 50
+    range_norm: true
+    criterion: l1
+  # gan loss
+  gan_opt:
+    type: GANLoss
+    gan_type: wgan_softplus
+    loss_weight: !!float 1e-1
+  # r1 regularization for discriminator
+  r1_reg_weight: 10
+  # facial component loss
+  gan_component_opt:
+    type: GANLoss
+    gan_type: vanilla
+    real_label_val: 1.0
+    fake_label_val: 0.0
+    loss_weight: !!float 1
+  comp_style_weight: 200
+
+
+  net_d_iters: 1
+  net_d_init_iters: 0
+  net_d_reg_every: 16
+
+# validation settings
+val:
+  val_freq: !!float 20e3
+  save_img: true
+
+  metrics:
+    psnr: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 20e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500
+
+find_unused_parameters: true
