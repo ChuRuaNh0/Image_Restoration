@@ -68,7 +68,10 @@ You can modify other hyperparameters if you want.
 ``` bash
 python basicsr/train.py -opt training_config/train_gfpgan_v4_square_license_basic.yml
 ```
-
+### Note:If NameError: name 'fused_act_ext' is not defined 
+```
+BASICSR_EXT=True BASICSR_JIT=True pip install basicsr
+```
 ## Previous Experimental Files
 
 [Download Link](https://drive.google.com/file/d/11fuj2SN_yPPmWqqIgZxVqzkMSmUiMMNb/view?usp=share_link)
